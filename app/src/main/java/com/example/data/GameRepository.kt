@@ -399,7 +399,7 @@ class GameRepository(private val gameDao: GameDao) {
         // Sum business passive income
         val businessIncome = currentBusinesses.sumOf { it.currentHourlyIncome }
         // Sum stock dividend passive income (e.g. 3% of current price * count per hour)
-        val stockIncome = currentStocks.sumOf { (it.currentPrice * it.ownedCount) * (it.dividendYield / 24.0) } // let's say dividend is relative to some hour yield
+        val stockIncome = currentStocks.sumOf { (it.currentPrice * it.ownedCount) * (it.dividendYield / 24.0) } 
 
         val hourlyTotal = businessIncome + stockIncome
         if (hourlyTotal > 0) {
@@ -409,6 +409,38 @@ class GameRepository(private val gameDao: GameDao) {
             val updated = player.copy(
                 balance = player.balance + addedIncome,
                 totalEarned = player.totalEarned + addedIncome
+            )
+            gameDao.insertPlayerState(updated)
+            updatePlayerRank(updated.balance)
+        }
+    }
+
+    suspend fun applyBusinessPassiveIncome(seconds: Double) {
+        val player = gameDao.getPlayerStateSync() ?: return
+        val currentBusinesses = gameDao.getAllBusinessesSync()
+        val businessIncome = currentBusinesses.sumOf { it.currentHourlyIncome }
+        if (businessIncome > 0) {
+            val multiplier = if (player.isNoAdsActive) 1.25 else 1.0
+            val added = (businessIncome / 3600.0) * seconds * multiplier
+            val updated = player.copy(
+                balance = player.balance + added,
+                totalEarned = player.totalEarned + added
+            )
+            gameDao.insertPlayerState(updated)
+            updatePlayerRank(updated.balance)
+        }
+    }
+
+    suspend fun applyPassiveIncomeOnlyStocks(seconds: Double) {
+        val player = gameDao.getPlayerStateSync() ?: return
+        val currentStocks = gameDao.getAllStocksSync()
+        val stockIncome = currentStocks.sumOf { (it.currentPrice * it.ownedCount) * (it.dividendYield / 24.0) }
+        if (stockIncome > 0) {
+            val multiplier = if (player.isNoAdsActive) 1.25 else 1.0
+            val added = (stockIncome / 3600.0) * seconds * multiplier
+            val updated = player.copy(
+                balance = player.balance + added,
+                totalEarned = player.totalEarned + added
             )
             gameDao.insertPlayerState(updated)
             updatePlayerRank(updated.balance)

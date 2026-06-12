@@ -111,17 +111,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 delay(tickIntervalMs)
                 
                 // Calculate income
-                val currentBusinesses = businesses.value
                 val currentStocks = stocks.value
                 val player = playerState.value
 
                 if (player != null) {
-                    // Business passive income per hour
-                    val businessHourly = currentBusinesses.sumOf { it.currentHourlyIncome }
                     // Stock dividends per hour
                     val stockHourly = currentStocks.sumOf { (it.currentPrice * it.ownedCount) * (it.dividendYield / 24.0) }
                     
-                    val totalHourlyIncomeRaw = businessHourly + stockHourly
+                    val totalHourlyIncomeRaw = stockHourly
                     val totalHourlyIncome = if (_isNoAdsPurchased.value) totalHourlyIncomeRaw * 1.25 else totalHourlyIncomeRaw
 
                     if (totalHourlyIncome > 0) {
@@ -129,11 +126,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         _liveBalance.value += addedPerTick
                     }
 
-                    // Periodic DB saves and background simulation
+                    // Periodic DB saves and background simulation (stocks only)
                     databaseSyncCounter += tickIntervalMs
                     if (databaseSyncCounter >= 4000L) { // Sync to DB every 4 seconds
                         databaseSyncCounter = 0
-                        repository.applyPassiveIncome(4.0)
+                        repository.applyPassiveIncomeOnlyStocks(4.0)
                     }
                 }
 
@@ -155,6 +152,28 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         repository.triggerRandomBusinessWarnings()
                     }
                 }
+            }
+        }
+    }
+
+    // Accumulates active/purchased businesses passive income proportional part once a second
+    fun accrueBusinessPassiveIncomeOneSecond() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentBusinesses = businesses.value
+            val player = playerState.value ?: return@launch
+            
+            // Sum overall business passive income
+            val businessHourlySum = currentBusinesses.sumOf { it.currentHourlyIncome }
+            if (businessHourlySum > 0) {
+                val multiplier = if (player.isNoAdsActive) 1.25 else 1.0
+                val totalHourlyAdjusted = businessHourlySum * multiplier
+                val proportionalSecondSlice = totalHourlyAdjusted / 3600.0
+                
+                // Increment visual balance representation
+                _liveBalance.value += proportionalSecondSlice
+                
+                // Persist 1 second of passive business income to DB
+                repository.applyBusinessPassiveIncome(1.0)
             }
         }
     }

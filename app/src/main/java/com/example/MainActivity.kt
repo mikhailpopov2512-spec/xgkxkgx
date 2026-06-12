@@ -26,6 +26,7 @@ import androidx.compose.ui.zIndex
 import com.example.ui.GameViewModel
 import com.example.ui.screens.*
 import com.example.ui.theme.*
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels()
@@ -47,6 +48,14 @@ fun MainContent(viewModel: GameViewModel) {
     val currentTab by viewModel.currentTab.collectAsState()
     val businesses by viewModel.businesses.collectAsState()
     val transactionSuccess by viewModel.showTransactionSuccess.collectAsState()
+
+    // Hook (LaunchedEffect) ticking once a second, calculating overall hourly income of all owned businesses and adding the proportional second-slice to the player state/balance:
+    LaunchedEffect(key1 = Unit) {
+        while (true) {
+            delay(1000L)
+            viewModel.accrueBusinessPassiveIncomeOneSecond()
+        }
+    }
 
     // Dynamically calculate warnings warning count for Bottom bar badge!
     val alertCount = businesses.count { it.isWarningActive && it.level > 0 }
