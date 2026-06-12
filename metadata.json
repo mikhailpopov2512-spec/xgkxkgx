@@ -1,0 +1,6 @@
+{
+  "name": "Капиталист кликер",
+  "description": "Элегантный кликер-симулятор с прокачкой, биржей акций, бизнесом и таблицей лидеров.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
